@@ -14,6 +14,7 @@ class LatticeStructure(Enum):
     BCC = auto()
     FCC = auto()
     IDEAL_HCP = auto()
+    BCC_WITH_SADDLES = auto()
 
 
 STRUCTURE_TO_ATOMIC_BASIS: Dict[LatticeStructure, np.typing.NDArray[np.floating]] = {
@@ -33,6 +34,12 @@ STRUCTURE_TO_ATOMIC_BASIS: Dict[LatticeStructure, np.typing.NDArray[np.floating]
     LatticeStructure.IDEAL_HCP: np.array([
         np.array([0.0, 0.0, 0.0]),
         np.array([2/3, 1/3, 0.5])
+    ]),
+    LatticeStructure.BCC_WITH_SADDLES: np.array([
+        [0.0, 0.0, 0.0],
+        [0.25, 0.25, 0.25],
+        [0.5, 0.5, 0.5],
+        [0.75, 0.75, 0.75]
     ])
 }
 
