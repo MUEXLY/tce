@@ -78,6 +78,95 @@ STRUCTURE_TO_CUTOFF_LISTS: Dict[LatticeStructure, NDArray[np.floating]] = {
 r"""Mapping from lattice structure to neighbor cutoffs, in units of the lattice parameter $a$"""
 
 
+def get_three_body_labels(
+    lattice_structure: LatticeStructure,
+    tolerance: float = 0.01,
+    min_num_sites: int = 125
+) -> NDArray[np.integer]:
+    
+    min_num_unit_cells = min_num_sites // len(STRUCTURE_TO_ATOMIC_BASIS[lattice_structure])
+    s = np.ceil(np.cbrt(min_num_unit_cells))
+    size = (s, s, s)
+    i, j, k = (np.arange(s) for s in size)
+    unit_cell_positions = np.array(np.meshgrid(i, j, k, indexing='ij')).reshape(3, -1).T
+
+    cutoffs = STRUCTURE_TO_CUTOFF_LISTS[lattice_structure]
+    positions = unit_cell_positions[:, np.newaxis, :] + \
+        STRUCTURE_TO_ATOMIC_BASIS[lattice_structure][np.newaxis, :, :]
+    positions = positions.reshape(-1, 3)
+
+    tree = KDTree(positions, boxsize=np.array(size))
+    distances = tree.sparse_distance_matrix(tree, max_distance=(1.0 + tolerance) * cutoffs[-1]).tocsr()
+    distances.eliminate_zeros()
+    distances = sparse.COO.from_scipy_sparse(distances)
+
+    adjacency_tensors = sparse.stack([
+        sparse.where(
+            sparse.logical_and(distances > (1.0 - tolerance) * c, distances < (1.0 + tolerance) * c),
+            x=True, y=False
+        ) for c in cutoffs
+    ])
+
+    max_adj_order = adjacency_tensors.shape[0]
+    non_zero_labels = []
+    for labels in product(*[range(max_adj_order) for _ in range(3)]):
+        if not labels[0] <= labels[1] <= labels[2]:
+            continue
+        three_body_tensor = sum(
+            (sparse.einsum(
+                "ij,jk,ki->ijk",
+                adjacency_tensors[i],
+                adjacency_tensors[j],
+                adjacency_tensors[k]
+            ) for i, j, k in set(permutations(labels))),
+            start=sparse.COO(coords=[], shape=(len(positions), len(positions), len(positions)))
+        )
+        if not three_body_tensor.nnz:
+            continue
+        non_zero_labels.append(list(labels))
+
+    non_zero_labels.sort(key=lambda x: (max(x), x))
+    return np.array(non_zero_labels)
+
+
+_STRUCTURE_TO_THREE_BODY_LABELS = {
+    LatticeStructure.SC: np.array([
+        [0, 0, 1],
+        [1, 1, 1],
+        [0, 1, 2],
+        [0, 0, 3],
+        [0, 3, 3],
+        [1, 1, 3],
+        [2, 2, 3]
+    ]),
+    LatticeStructure.BCC: np.array([
+        [0, 0, 1],
+        [0, 0, 2],
+        [1, 1, 2],
+        [2, 2, 2],
+        [0, 1, 3],
+        [0, 2, 3],
+        [1, 3, 3],
+        [2, 3, 3]
+    ]),
+    LatticeStructure.FCC: np.array([
+        [0, 0, 0],
+        [0, 0, 1],
+        [0, 0, 2],
+        [0, 1, 2],
+        [0, 2, 2],
+        [1, 2, 2],
+        [2, 2, 2],
+        [0, 0, 3],
+        [0, 2, 3],
+        [1, 1, 3],
+        [2, 2, 3],
+        [3, 3, 3]
+    ])
+}
+"""@private"""
+
+
 def load_three_body_labels(
     tolerance: float = 0.01,
     min_num_sites: int = 125,
@@ -103,49 +192,12 @@ def load_three_body_labels(
     label_dict = {}
     for lattice_structure in LatticeStructure:
 
-        min_num_unit_cells = min_num_sites // len(STRUCTURE_TO_ATOMIC_BASIS[lattice_structure])
-        s = np.ceil(np.cbrt(min_num_unit_cells))
-        size = (s, s, s)
-        i, j, k = (np.arange(s) for s in size)
-        unit_cell_positions = np.array(np.meshgrid(i, j, k, indexing='ij')).reshape(3, -1).T
-
-        cutoffs = STRUCTURE_TO_CUTOFF_LISTS[lattice_structure]
-        positions = unit_cell_positions[:, np.newaxis, :] + \
-            STRUCTURE_TO_ATOMIC_BASIS[lattice_structure][np.newaxis, :, :]
-        positions = positions.reshape(-1, 3)
-
-        tree = KDTree(positions, boxsize=np.array(size))
-        distances = tree.sparse_distance_matrix(tree, max_distance=(1.0 + tolerance) * cutoffs[-1]).tocsr()
-        distances.eliminate_zeros()
-        distances = sparse.COO.from_scipy_sparse(distances)
-
-        adjacency_tensors = sparse.stack([
-            sparse.where(
-                sparse.logical_and(distances > (1.0 - tolerance) * c, distances < (1.0 + tolerance) * c),
-                x=True, y=False
-            ) for c in cutoffs
-        ])
-
-        max_adj_order = adjacency_tensors.shape[0]
-        non_zero_labels = []
-        for labels in product(*[range(max_adj_order) for _ in range(3)]):
-            if not labels[0] <= labels[1] <= labels[2]:
-                continue
-            three_body_tensor = sum(
-                (sparse.einsum(
-                    "ij,jk,ki->ijk",
-                    adjacency_tensors[i],
-                    adjacency_tensors[j],
-                    adjacency_tensors[k]
-                ) for i, j, k in set(permutations(labels))),
-                start=sparse.COO(coords=[], shape=(len(positions), len(positions), len(positions)))
-            )
-            if not three_body_tensor.nnz:
-                continue
-            non_zero_labels.append(list(labels))
-
-        non_zero_labels.sort(key=lambda x: (max(x), x))
-        label_dict[lattice_structure] = np.array(non_zero_labels)
+        try:
+            non_zero_labels = _STRUCTURE_TO_THREE_BODY_LABELS[lattice_structure]
+        except KeyError:
+            non_zero_labels = get_three_body_labels(lattice_structure=lattice_structure, tolerance=tolerance, min_num_sites=min_num_sites)
+        
+        label_dict[lattice_structure] = non_zero_labels
 
     return label_dict
 

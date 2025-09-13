@@ -11,7 +11,7 @@ from ase.calculators.singlepoint import SinglePointCalculator
 import sparse
 
 import tce
-from tce.constants import LatticeStructure
+from tce.constants import LatticeStructure, get_three_body_labels, _STRUCTURE_TO_THREE_BODY_LABELS
 from tce.structures import Supercell
 from tce.training import (
     ClusterBasis,
@@ -256,3 +256,12 @@ def test_bad_pkl_object():
             pickle.dump(object(), f)
         with pytest.raises(ValueError):
             _ = ClusterExpansion.load(temp_path)
+
+
+@pytest.mark.parametrize("lattice_structure", LatticeStructure)
+def test_computed_labels_equal_cached_labels(lattice_structure: LatticeStructure):
+
+    cached = _STRUCTURE_TO_THREE_BODY_LABELS[lattice_structure]
+    loaded = get_three_body_labels(lattice_structure)
+
+    assert np.all(cached == loaded)
