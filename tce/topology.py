@@ -245,7 +245,6 @@ Type alias defining a feature computer, which is in general a function that take
 feature vector. 
 """
 
-
 def hash_numpy_array(v: NDArray) -> str:
 
     r"""
