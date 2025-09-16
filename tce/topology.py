@@ -310,7 +310,7 @@ def topological_feature_vector_factory(basis: ClusterBasis, type_map: NDArray[np
                 adjacency_tensors=adjacency_tensors,
                 max_three_body_order=basis.max_triplet_order,
             )
-            topology_cache[key] = (adjacency_tensors, three_body_tensors, basis)
+            topology_cache[key] = adjacency_tensors, three_body_tensors
 
         state_matrix = np.zeros((len(atoms), num_types))
         for site, symbol in enumerate(atoms.symbols):
