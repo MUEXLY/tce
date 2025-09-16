@@ -10,6 +10,7 @@ from enum import Enum, auto
 import warnings
 
 from ase.calculators.calculator import Calculator
+from ase import Atoms
 import numpy as np
 
 from .training import ClusterExpansion
@@ -41,7 +42,7 @@ r"""set of intensive properties which need to be rescaled"""
 @dataclass
 class TCECalculator(Calculator):
 
-    r"""
+    """
     ASE calculator wrapper for `tce-lib`.
     """
 
@@ -54,6 +55,7 @@ class TCECalculator(Calculator):
         feature_computer: Optional[FeatureComputer] = None,
         **results
     ):
+        r"""basic initialization method. ensures that all cluster expansions have the same bases and type maps"""
         warnings.warn(
             f"{self.__class__.__name__} is not well tested. Use with caution",
             UserWarning
@@ -77,7 +79,7 @@ class TCECalculator(Calculator):
 
         self.results.update(**results)
 
-    def get_property(self, name, atoms=None, allow_calculation=True):
+    def get_property(self, name: str, atoms: Optional[Atoms] = None, allow_calculation: bool = True):
 
         r"""
         compute property from `ase.Atoms` object
