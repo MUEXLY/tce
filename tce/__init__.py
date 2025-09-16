@@ -308,6 +308,30 @@ which tells you some info, and (should) additionally give you contact informatio
 that `tce.datasets.Dataset.configurations` is of type `list[ase.Atoms]`, so you can directly plug this into a training
 routine. Please contact me directly (email above) if you have datasets you would like to be added 😊
 
+## 🎁 ASE Calculator Wrapper
+
+We have also provided an `ase.calculator.Calculator` child class that wraps `tce-lib`. This is mostly a convenience
+feature for those that already have an `ase.calculator.Calculator`-driven workflow.
+
+```py
+.. include:: ../examples/calculator-interface.py
+```
+
+One note here is that this is a great way to wrap multiple cluster expansions for different properties into one object.
+There's no guarantee that any property will be well-predicted, though. For example, the off-diagonal stress
+$\sigma_{xy}$ above: the predictive strength is very weak because the property is largely $0$ across the whole
+training set. In a real workflow, though, this will likely not be a problem, since the stresses are very
+concentrated along the diagonal elements. Also, again, **the target property needs to be extensive**, which is reflected
+in the stress fitting routine above. For an intensive property, `tce.calculator.TCECalculator` will rescale the feature
+to be intensive if it is indeed supposed to be intensive.
+
+[<img
+    src="https://raw.githubusercontent.com/MUEXLY/tce-lib/refs/heads/main/examples/calculator-interface.png"
+    width=100%
+    alt="Multi-property cluster expansion in an ASE calculator"
+    title="Calculator interface"
+/>](https://raw.githubusercontent.com/MUEXLY/tce-lib/refs/heads/main/examples/calculator-interface.png)
+
 # Sharp Edges
 
 `tce-lib` has a couple of sharp edges (or gotcha's) that one needs to look out for.
@@ -336,7 +360,7 @@ then make the property intensive later, as done in
 
 """
 
-__version__ = "0.3.3"
+__version__ = "0.4.0"
 __authors__ = ["Jacob Jeffries"]
 
 __url__ = "https://github.com/MUEXLY/tce-lib"
