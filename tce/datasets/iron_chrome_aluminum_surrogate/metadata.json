@@ -1,0 +1,6 @@
+{
+    "lattice_parameter": 2.89,
+    "lattice_structure": "bcc",
+    "description": "FeCrAl data generated from surrogate models. Energies calculated from an EAM/FS potential (https://doi.org/10.1016/j.jnucmat.2020.152421)",
+    "contact_info": "Jacob Jeffries, jwjeffr@clemson.edu"
+}
