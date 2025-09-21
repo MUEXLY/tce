@@ -6,14 +6,14 @@ These are useful for largely for educational reasons, i.e., seeing how `tce-lib`
 from dataclasses import dataclass, fields
 from pathlib import Path
 import json
-from importlib.resources import files
+from importlib.resources import files, as_file
 
 from ase import Atoms, io
 
 from tce.constants import LatticeStructure
 
 
-DATASET_DIR = Path(files("tce") / "datasets")
+TCE_MODULE_TRAVERSABLE = files("tce")
 """@private"""
 
 
@@ -64,21 +64,27 @@ class Dataset:
     @classmethod
     def from_dir(cls, directory: Path) -> "Dataset":
 
-        with (DATASET_DIR / directory / "metadata.json").open("r") as file:
-            metadata = json.load(file)
+        with as_file(TCE_MODULE_TRAVERSABLE) as module_dir:
+            dataset_dir = module_dir / "datasets"
 
-        metadata["lattice_structure"] = getattr(LatticeStructure, metadata["lattice_structure"].upper())
+            with (dataset_dir / directory / "metadata.json").open("r") as file:
+                metadata = json.load(file)
 
-        configurations = [
-            io.read(path, format="extxyz") for path in (DATASET_DIR / directory).glob("*.xyz")
-        ]
+            metadata["lattice_structure"] = getattr(LatticeStructure, metadata["lattice_structure"].upper())
 
-        if not all(isinstance(configuration, Atoms) for configuration in configurations):
-            raise TypeError
+            configurations = [
+                io.read(path, format="extxyz") for path in (dataset_dir / directory).glob("*.xyz")
+            ]
+
+        for configuration in configurations:
+            assert isinstance(configuration, Atoms)
 
         return cls(**metadata, configurations=configurations)
     
 
 def available_datasets() -> list[str]:
 
-    return list(x.name for x in DATASET_DIR.iterdir())
+    with as_file(TCE_MODULE_TRAVERSABLE) as module_dir:
+        dataset_dir = module_dir / "datasets"
+
+        return list(x.name for x in dataset_dir.iterdir())
