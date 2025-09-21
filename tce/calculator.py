@@ -51,10 +51,7 @@ class TCECalculator(Calculator):
         **results
     ):
         r"""basic initialization method. ensures that all cluster expansions have the same bases and type maps"""
-        warnings.warn(
-            f"{self.__class__.__name__} is not well tested. Use with caution",
-            UserWarning
-        )
+
         super().__init__()
         self.cluster_expansions = cluster_expansions
 
