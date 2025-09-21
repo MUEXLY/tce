@@ -49,27 +49,13 @@ class TCECalculator(Calculator):
     cluster_expansions: dict[ASEProperty, ClusterExpansion]
     feature_computers: dict[ASEProperty, FeatureComputer] = field(init=False)
 
-    def __init__(
-        self,
-        cluster_expansions: dict[ASEProperty, ClusterExpansion],
-        **results
-    ):
-        r"""basic initialization method. ensures that all cluster expansions have the same bases and type maps"""
+    def __post_init__(self):
 
-        super().__init__()
-        self.cluster_expansions = cluster_expansions
-
-        for e1, e2 in pairwise(cluster_expansions.values()):
+        for e1, e2 in pairwise(self.cluster_expansions.values()):
             if e1.cluster_basis != e2.cluster_basis:
                 raise ValueError(f"cluster bases are different in {self.__class__.__name__}")
             if np.any(e1.type_map != e2.type_map):
                 raise ValueError(f"type maps are different in {self.__class__.__name__}")
-
-        self.results = {}
-
-        self.results.update(**results)
-
-    def __post_init__(self):
 
         self.feature_computers = {}
 
