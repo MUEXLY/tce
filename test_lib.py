@@ -3,9 +3,12 @@ import re
 from tempfile import TemporaryDirectory
 from pathlib import Path
 import pickle
+from dataclasses import dataclass
+from copy import deepcopy
 
 import pytest
 import numpy as np
+from numpy.typing import NDArray
 from ase import build
 from ase.calculators.singlepoint import SinglePointCalculator
 import sparse
@@ -20,10 +23,12 @@ from tce.training import (
     NON_CUBIC_CELL_MESSAGE,
     LARGE_SYSTEM_MESSAGE,
     LimitingRidge,
-    ClusterExpansion
+    ClusterExpansion,
+    train
 )
 from tce.topology import symmetrize
 from tce.datasets import available_datasets, Dataset
+from tce.calculator import TCECalculator, ASEProperty
 
 
 @pytest.fixture
@@ -191,6 +196,7 @@ def test_large_system_in_training(monkeypatch):
 def test_can_load_and_compute_energies_from_dataset(dataset_str):
 
     dataset = Dataset.from_dir(dataset_str)
+    print(dataset)
     for configuration in dataset.configurations:
         _ = configuration.get_potential_energy()
 
@@ -266,3 +272,154 @@ def test_computed_labels_equal_cached_labels(lattice_structure: LatticeStructure
     loaded = get_three_body_labels(lattice_structure)
 
     assert np.all(cached == loaded)
+
+
+@pytest.mark.parametrize("dataset_str", available_datasets())
+def test_can_train_and_attach_calculator(dataset_str):
+
+    dataset = Dataset.from_dir(dataset_str)
+    configurations = dataset.configurations[:10]
+    ce = train(
+        configurations,
+        basis=ClusterBasis(
+            lattice_structure=dataset.lattice_structure,
+            lattice_parameter=dataset.lattice_parameter,
+            max_adjacency_order=3,
+            max_triplet_order=1
+        ),
+        model=LimitingRidge()
+    )
+
+    for configuration in configurations:
+        configuration.calc = TCECalculator(
+            cluster_expansions={ASEProperty.ENERGY: ce}
+        )
+
+    for configuration in configurations:
+        assert isinstance(configuration.calc, TCECalculator)
+        _ = configuration.get_potential_energy()
+
+
+@pytest.fixture
+def bcc_ce_fixture1():
+
+    rng = np.random.default_rng(seed=0)
+
+    basis = ClusterBasis(
+        lattice_structure=LatticeStructure.BCC,
+        lattice_parameter=2.7,
+        max_adjacency_order=3,
+        max_triplet_order=1
+    )
+
+    type_map = np.sort(np.array(["Fe", "Cr"]))
+
+    @dataclass
+    class SurrogateLinearModel:
+        coeff: NDArray
+
+        def fit(self, X, y) -> "SurrogateLinearModel":
+            raise NotImplementedError
+
+        def predict(self, x) -> float:
+            return np.dot(self.coeff, x)
+
+    two_body_coeffs = rng.normal(
+        loc=-0.1,
+        scale=0.03,
+        size=(basis.max_adjacency_order, len(type_map), len(type_map))
+    )
+    two_body_coeffs = symmetrize(two_body_coeffs, axes=(1, 2)).flatten()
+
+    three_body_coeffs = rng.normal(
+        loc=-0.05,
+        scale=0.02,
+        size=(basis.max_triplet_order, len(type_map), len(type_map), len(type_map))
+    )
+    three_body_coeffs = symmetrize(three_body_coeffs, axes=(2, 3)).flatten()
+
+    return ClusterExpansion(
+        model=SurrogateLinearModel(
+            coeff=np.concatenate((two_body_coeffs, three_body_coeffs))
+        ),
+        cluster_basis=basis,
+        type_map=type_map,
+    )
+
+
+@pytest.fixture
+def bcc_ce_fixture2():
+
+    rng = np.random.default_rng(seed=0)
+
+    basis = ClusterBasis(
+        lattice_structure=LatticeStructure.BCC,
+        lattice_parameter=2.7,
+        max_adjacency_order=2,
+        max_triplet_order=1
+    )
+
+    type_map = np.sort(np.array(["Fe", "Cr"]))
+
+    @dataclass
+    class SurrogateLinearModel:
+        coeff: NDArray
+
+        def fit(self, X, y) -> "SurrogateLinearModel":
+            raise NotImplementedError
+
+        def predict(self, x) -> float:
+            return np.dot(self.coeff, x)
+
+    two_body_coeffs = rng.normal(
+        loc=-0.1,
+        scale=0.03,
+        size=(basis.max_adjacency_order, len(type_map), len(type_map))
+    )
+    two_body_coeffs = symmetrize(two_body_coeffs, axes=(1, 2)).flatten()
+
+    three_body_coeffs = rng.normal(
+        loc=-0.05,
+        scale=0.02,
+        size=(basis.max_triplet_order, len(type_map), len(type_map), len(type_map))
+    )
+    three_body_coeffs = symmetrize(three_body_coeffs, axes=(2, 3)).flatten()
+
+    return ClusterExpansion(
+        model=SurrogateLinearModel(
+            coeff=np.concatenate((two_body_coeffs, three_body_coeffs))
+        ),
+        cluster_basis=basis,
+        type_map=type_map,
+    )
+
+
+def test_different_basis_raises_error(bcc_ce_fixture1, bcc_ce_fixture2):
+
+    tungsten_tantalum_dataset = Dataset.from_dir("tungsten_tantalum_genetic")
+    config = tungsten_tantalum_dataset.configurations[0]
+
+    with pytest.raises(ValueError):
+        config.calc = TCECalculator(
+            cluster_expansions={
+                ASEProperty.ENERGY: bcc_ce_fixture1,
+                ASEProperty.STRESS: bcc_ce_fixture2
+            }
+        )
+
+
+def test_different_type_maps_raises_error(bcc_ce_fixture1):
+
+    second_ce = deepcopy(bcc_ce_fixture1)
+    second_ce.type_map = np.sort(np.array(["Ta", "W"]))
+
+    tungsten_tantalum_dataset = Dataset.from_dir("tungsten_tantalum_genetic")
+    config = tungsten_tantalum_dataset.configurations[0]
+
+    with pytest.raises(ValueError):
+        config.calc = TCECalculator(
+            cluster_expansions={
+                ASEProperty.ENERGY: bcc_ce_fixture1,
+                ASEProperty.STRESS: second_ce
+            }
+        )

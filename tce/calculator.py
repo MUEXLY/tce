@@ -64,8 +64,10 @@ class TCECalculator(Calculator):
         self.cluster_expansions = cluster_expansions
 
         for e1, e2 in pairwise(cluster_expansions.values()):
-            assert e1.cluster_basis == e2.cluster_basis
-            assert np.all(e1.type_map == e2.type_map)
+            if e1.cluster_basis != e2.cluster_basis:
+                raise ValueError(f"cluster bases are different in {self.__class__.__name__}")
+            if np.any(e1.type_map != e2.type_map):
+                raise ValueError(f"type maps are different in {self.__class__.__name__}")
 
         if not feature_computer:
             expansion_ids = list(cluster_expansions.keys())
