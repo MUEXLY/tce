@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import Optional
 from itertools import pairwise
 from enum import Enum, auto
-import warnings
 
 from ase.calculators.calculator import Calculator
 from ase import Atoms
