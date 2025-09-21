@@ -4,18 +4,9 @@ import numpy as np
 from numpy.typing import NDArray
 
 from tce.constants import LatticeStructure, ClusterBasis
-from tce.training import train
+from tce.training import train, get_type_map
 from tce.structures import Supercell
-
-
-def compute_stresses(atoms: Atoms) -> NDArray[np.floating]:
-
-    # train on "extensive" stress - feature vectors are extensive
-
-    try:
-        return len(atoms) * atoms.get_stress()
-    except RuntimeError as e:
-        raise ValueError("stresses not computable") from e
+from tce.topology import topological_feature_vector_factory
 
 
 def main():
@@ -46,33 +37,36 @@ def main():
         configuration.calc = EAM(potential="Cu_Ni_Fischer_2018.eam.alloy")
         configurations.append(configuration)
 
+    basis = ClusterBasis(
+        lattice_structure=lattice_structure,
+        lattice_parameter=lattice_parameter,
+        max_adjacency_order=3,
+        max_triplet_order=2
+    )
+    type_map = get_type_map(configurations)
+    extensive_feature_computer = topological_feature_vector_factory(basis=basis, type_map=type_map)
+    def intensive_feature_computer(atoms_: Atoms) -> NDArray:
+
+        return extensive_feature_computer(atoms_) / len(atoms_)
+
     cluster_expansion = train(
         configurations,
-        basis=ClusterBasis(
-            lattice_structure=lattice_structure,
-            lattice_parameter=lattice_parameter,
-            max_adjacency_order=3,
-            max_triplet_order=2
-        ),
-        target_property_computer=compute_stresses,
+        basis=basis,
+        feature_computer=intensive_feature_computer,
+        target_property_computer=lambda atoms_: atoms_.get_stress()
     )
 
     # predict a larger stress
 
-    supercell = Supercell(
-        lattice_structure=lattice_structure,
-        lattice_parameter=lattice_parameter,
-        size=(10, 10, 10)
-    )
-    state_matrix = np.zeros((supercell.num_sites, len(species)))
-    types = generator.choice(a=np.arange(len(species)), p=[0.7, 0.3], size=supercell.num_sites)
-    state_matrix[np.arange(supercell.num_sites), types] = 1.0
-    feature_vector = supercell.feature_vector(
-        state_matrix=state_matrix,
-        max_adjacency_order=3,
-        max_triplet_order=2
-    )
-    print(cluster_expansion.model.predict(feature_vector) / supercell.num_sites)
+    larger_system = build.bulk(
+        name=species[0],
+        crystalstructure=lattice_structure.name.lower(),
+        a=lattice_parameter,
+        cubic=True
+    ).repeat((10, 10, 10))
+    larger_system.symbols = generator.choice(type_map, p=[0.7, 0.3], size=len(larger_system))
+    feature_vector = intensive_feature_computer(larger_system)
+    print(cluster_expansion.model.predict(feature_vector))
 
 
 if __name__ == "__main__":

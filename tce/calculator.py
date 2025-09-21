@@ -33,11 +33,6 @@ STR_TO_PROPERTY: dict[str, ASEProperty] = {
 }
 r"""mapping from ase's string to our Enum class for properties"""
 
-INTENSIVE_PROPERTIES: set[ASEProperty] = {
-    ASEProperty.STRESS
-}
-r"""set of intensive properties which need to be rescaled"""
-
 
 @dataclass
 class TCECalculator(Calculator):
@@ -105,6 +100,5 @@ class TCECalculator(Calculator):
 
         if isinstance(predicted, np.ndarray):
             predicted = predicted.squeeze()
-        if prop in INTENSIVE_PROPERTIES:
-            predicted /= len(atoms)
+
         return predicted

@@ -10,9 +10,10 @@ from sklearn.linear_model import RidgeCV, LassoCV
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 
-from tce.training import train
+from tce.training import train, get_type_map
 from tce.constants import LatticeStructure, ClusterBasis
 from tce.calculator import TCECalculator, ASEProperty
+from tce.topology import topological_feature_vector_factory
 
 DATASET_DIR = Path("copper-nickel-many-features")
 CLUSTER_BASIS = ClusterBasis(
@@ -71,11 +72,18 @@ def main():
     configurations = [io.read(p) for p in DATASET_DIR.glob("*.xyz")]
     train_config, test_config = train_test_split(configurations, test_size=0.2, random_state=0)
 
+    type_map = get_type_map(configurations)
+    extensive_feature_computer = topological_feature_vector_factory(
+        basis=CLUSTER_BASIS,
+        type_map=type_map
+    )
+
     stress_ce = train(
         train_config,
         basis=CLUSTER_BASIS,
         model=RidgeCV(),
-        target_property_computer=lambda atoms: len(atoms) * atoms.get_stress()
+        feature_computer=lambda atoms: extensive_feature_computer(atoms) / len(atoms),
+        target_property_computer=lambda atoms: atoms.get_stress()
     )
 
     energy_ce = train(train_config, basis=CLUSTER_BASIS, model=LassoCV())
