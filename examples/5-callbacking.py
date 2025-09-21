@@ -16,10 +16,7 @@ def discord_webhook_callback(
         message: str = "CuNi mc run finished"
 ):
 
-    if not os.getenv(env_var):
-        raise ValueError(f"please set {env_var} environment variable")
-
-    if step + 1 < num_steps:
+    if not os.getenv(env_var) or step + 1 < num_steps:
         return
 
     response = requests.post(url=os.getenv(env_var), json={"content": message})

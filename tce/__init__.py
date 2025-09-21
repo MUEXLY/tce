@@ -321,7 +321,7 @@ There's no guarantee that any property will be well-predicted, though. For examp
 $\sigma_{xy}$ above: the predictive strength is very weak because the property is largely $0$ across the whole
 training set. In a real workflow, though, this will likely not be a problem, since the stresses are very
 concentrated along the diagonal elements. Also, again, the default behavior of `tce-lib` is to assume that the target
-property is **extensive**, so make sure that each cluster expansion is computing the correct feature vectors!
+property is **extensive**, so make sure that each training routine is computing the correct feature vectors!
 
 [<img
     src="https://raw.githubusercontent.com/MUEXLY/tce-lib/refs/heads/main/examples/calculator-interface.png"

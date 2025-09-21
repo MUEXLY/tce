@@ -3,7 +3,7 @@ this module provides an `ase.calculator.Calculator` class that wraps `tce-lib`
 """
 
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 from itertools import pairwise
 from enum import Enum, auto
@@ -11,6 +11,7 @@ from enum import Enum, auto
 from ase.calculators.calculator import Calculator
 from ase import Atoms
 import numpy as np
+from numpy.typing import NDArray
 
 from .training import ClusterExpansion
 from .topology import FeatureComputer, topological_feature_vector_factory
@@ -32,6 +33,11 @@ STR_TO_PROPERTY: dict[str, ASEProperty] = {
 }
 r"""mapping from ase's string to our Enum class for properties"""
 
+INTENSIVE_PROPERTIES: set[ASEProperty] = {
+    ASEProperty.STRESS
+}
+r"""set of intensive properties"""
+
 
 @dataclass
 class TCECalculator(Calculator):
@@ -41,12 +47,11 @@ class TCECalculator(Calculator):
     """
 
     cluster_expansions: dict[ASEProperty, ClusterExpansion]
-    feature_computer: Optional[FeatureComputer] = None
+    feature_computers: dict[ASEProperty, FeatureComputer] = field(init=False)
 
     def __init__(
         self,
         cluster_expansions: dict[ASEProperty, ClusterExpansion],
-        feature_computer: Optional[FeatureComputer] = None,
         **results
     ):
         r"""basic initialization method. ensures that all cluster expansions have the same bases and type maps"""
@@ -60,17 +65,29 @@ class TCECalculator(Calculator):
             if np.any(e1.type_map != e2.type_map):
                 raise ValueError(f"type maps are different in {self.__class__.__name__}")
 
-        if not feature_computer:
-            expansion_ids = list(cluster_expansions.keys())
-            self.feature_computer = topological_feature_vector_factory(
-                basis=cluster_expansions[expansion_ids[0]].cluster_basis,
-                type_map=cluster_expansions[expansion_ids[0]].type_map,
-            )
-        else:
-            self.feature_computer = feature_computer
         self.results = {}
 
         self.results.update(**results)
+
+    def __post_init__(self):
+
+        self.feature_computers = {}
+
+        expansion_ids = list(self.cluster_expansions.keys())
+        extensive_feature_computer = topological_feature_vector_factory(
+            basis=self.cluster_expansions[expansion_ids[0]].cluster_basis,
+            type_map=self.cluster_expansions[expansion_ids[0]].type_map,
+        )
+
+        def intensive_feature_computer(atoms: Atoms) -> NDArray:
+
+            return extensive_feature_computer(atoms) / len(atoms)
+
+        for key in expansion_ids:
+            if key in INTENSIVE_PROPERTIES:
+                self.feature_computers[key] = intensive_feature_computer
+            else:
+                self.feature_computers[key] = extensive_feature_computer
 
     def get_property(self, name: str, atoms: Optional[Atoms] = None, allow_calculation: bool = True):
 
@@ -84,13 +101,12 @@ class TCECalculator(Calculator):
         """
 
         prop = STR_TO_PROPERTY[name]
+        computer = self.feature_computers[prop]
 
-        if self.feature_computer is None:
-            raise ValueError("unspecified feature computer")
         if atoms is None:
             raise ValueError("please prove Atoms object")
 
-        x = self.feature_computer(atoms).reshape(1, -1)
+        x = computer(atoms).reshape(1, -1)
         model = self.cluster_expansions[prop].model
         predicted = model.predict(x)
 
