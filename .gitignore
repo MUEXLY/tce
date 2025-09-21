@@ -187,3 +187,10 @@ trash
 # configuration files in examples
 examples/*/*.xyz
 examples/*.xyz
+
+# proprietary VASP files
+OUTCAR
+POTCAR
+
+# scratch files
+scratch.py

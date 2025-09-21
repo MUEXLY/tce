@@ -1,0 +1,6 @@
+{
+    "lattice_parameter": 3.85,
+    "lattice_structure": "fcc",
+    "description": "RuIrRhPtPd data generated from surrogate models using grand canonical MC. energies calculated using VASP",
+    "contact_info": "Jacob Jeffries, jwjeffr@clemson.edu"
+}
