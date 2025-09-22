@@ -6,14 +6,24 @@ is what `tce.monte_carlo.monte_carlo` uses internally to avoid recomputing large
 from dataclasses import dataclass
 from functools import cached_property, lru_cache
 from typing import Union
+import logging
 
 import numpy as np
 from numpy.typing import NDArray
 from scipy.spatial import KDTree
 import sparse
 
-from .constants import LatticeStructure, STRUCTURE_TO_ATOMIC_BASIS, STRUCTURE_TO_CUTOFF_LISTS, STRUCTURE_TO_THREE_BODY_LABELS, load_three_body_labels
+from .constants import (
+    LatticeStructure,
+    STRUCTURE_TO_ATOMIC_BASIS,
+    STRUCTURE_TO_CUTOFF_LISTS,
+    STRUCTURE_TO_THREE_BODY_LABELS,
+    load_three_body_labels
+)
 from . import topology
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(eq=True, frozen=True)
@@ -94,8 +104,10 @@ class Supercell:
         """
         try:
             labels = STRUCTURE_TO_THREE_BODY_LABELS[self.lattice_structure]
+            LOGGER.debug(f"labels loaded cached entry for {self.lattice_structure}")
         except KeyError:
             labels = load_three_body_labels()[self.lattice_structure]
+            LOGGER.debug(f"labels computed for {self.lattice_structure}")
         three_body_labels = [labels[order] for order in range(max_order)]
 
         return topology.get_three_body_tensors(

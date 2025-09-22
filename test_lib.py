@@ -226,6 +226,7 @@ def test_limiting_ridge_fit():
     X = np.array([1, 2, 3]).reshape((-1, 1))
     y = np.array([2, 4, 6])
     lr = LimitingRidge().fit(X, y)
+    _ = lr.score(X, y)
     assert np.all(y == lr.predict(X))
 
 
@@ -248,8 +249,9 @@ def test_can_write_and_read_model():
 
     with TemporaryDirectory() as directory:
         temp_path = Path(directory) / "model.pkl"
-        ce.save(temp_path)
-        ce_new = ClusterExpansion.load(temp_path)
+        with pytest.warns(UserWarning):
+            ce.save(temp_path)
+            ce_new = ClusterExpansion.load(temp_path)
 
     assert ce_new.cluster_basis == ce.cluster_basis
     assert np.all(ce_new.model.coef_ == ce.model.coef_)
@@ -261,7 +263,7 @@ def test_bad_pkl_object():
         temp_path = Path(directory) / "obj.pkl"
         with temp_path.open("wb") as f:
             pickle.dump(object(), f)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError), pytest.warns(UserWarning):
             _ = ClusterExpansion.load(temp_path)
 
 

@@ -7,6 +7,7 @@ from itertools import permutations
 from typing import Optional, Union, TypeAlias, Callable
 from functools import wraps
 import hashlib
+import logging
 
 from scipy.spatial import KDTree
 import numpy as np
@@ -22,6 +23,9 @@ from .constants import (
     ClusterBasis,
     STRUCTURE_TO_CUTOFF_LISTS
 )
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def symmetrize(tensor: sparse.COO, axes: Optional[tuple[int, ...]] =None) -> sparse.COO:
@@ -297,6 +301,7 @@ def topological_feature_vector_factory(basis: ClusterBasis, type_map: NDArray[np
         key = (*hash_topology(atoms), basis)
         if key in topology_cache:
             adjacency_tensors, three_body_tensors = topology_cache[key]
+            LOGGER.debug(f"topological tensors loaded from cache (key {key})")
         else:
             tree = KDTree(atoms.positions, boxsize=np.diag(atoms.cell))
             adjacency_tensors = get_adjacency_tensors(
@@ -310,6 +315,7 @@ def topological_feature_vector_factory(basis: ClusterBasis, type_map: NDArray[np
                 max_three_body_order=basis.max_triplet_order,
             )
             topology_cache[key] = adjacency_tensors, three_body_tensors
+            LOGGER.debug(f"topological tensors computed and stored in cache (key {key})")
 
         state_matrix = np.zeros((len(atoms), num_types))
         for site, symbol in enumerate(atoms.symbols):

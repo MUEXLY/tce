@@ -8,11 +8,15 @@ from enum import Enum, auto
 from typing import Dict
 from itertools import product, permutations
 from dataclasses import dataclass
+import logging
 
 import numpy as np
 from numpy.typing import NDArray
 from scipy.spatial import KDTree
 import sparse
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class LatticeStructure(Enum):
@@ -194,8 +198,14 @@ def load_three_body_labels(
  
         try:
             non_zero_labels = _STRUCTURE_TO_THREE_BODY_LABELS[lattice_structure]
+            LOGGER.debug(f"three body labels loaded for structure {lattice_structure} from cache")
         except KeyError:
-            non_zero_labels = get_three_body_labels(lattice_structure=lattice_structure, tolerance=tolerance, min_num_sites=min_num_sites)
+            non_zero_labels = get_three_body_labels(
+                lattice_structure=lattice_structure,
+                tolerance=tolerance,
+                min_num_sites=min_num_sites
+            )
+            LOGGER.debug(f"three body labels computed for structure {lattice_structure}")
         
         label_dict[lattice_structure] = non_zero_labels
 

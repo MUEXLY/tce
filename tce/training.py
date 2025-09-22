@@ -9,6 +9,7 @@ from typing import Callable, TypeAlias, Union, Optional, Protocol, runtime_check
 import warnings
 from pathlib import Path
 import pickle
+import logging
 
 import numpy as np
 from numpy.typing import NDArray
@@ -17,6 +18,9 @@ from ase import Atoms
 from tce.constants import ClusterBasis, STRUCTURE_TO_ATOMIC_BASIS
 from tce.topology import FeatureComputer, topological_feature_vector_factory
 from tce import __url__
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 NON_CUBIC_CELL_MESSAGE = "At least one of your configurations has a non-cubic cell. For now, tce-lib does not support non-cubic lattices."
@@ -48,6 +52,7 @@ def get_type_map(configurations: list[Atoms]) -> NDArray[np.str_]:
 
     # not all configurations need to have the same number of types, calculate the union of types
     all_types = set.union(*(set(x.get_chemical_symbols()) for x in configurations))
+    LOGGER.debug(f"{' '.join(all_types)} types detected in configurations")
     return np.array(sorted(list(all_types)))
 
 
@@ -163,10 +168,23 @@ class Model(Protocol):
 
         Args:
             x (NDArray[np.floating]):
-                data vecto
+                data vector
         """
 
         pass
+
+    @abstractmethod
+    def score(self, X: NDArray[np.floating], y: NDArray[np.floating]) -> float:
+
+        r"""
+        score a model
+
+        Args:
+            X (NDArray[np.floating]):
+                data matrix
+            y (NDArray[np.floating]):
+                target matrix
+        """
 
 
 class LimitingRidge:
@@ -208,6 +226,23 @@ class LimitingRidge:
             raise ValueError(f"need to fit {self.__class__.__name__} first!")
 
         return x @ self.coef_
+
+    def score(self, X: NDArray[np.floating], y: NDArray[np.floating]) -> float:
+
+        r"""
+        score a linear model with $R^2$
+
+        Args:
+            X (NDArray[np.floating]):
+                data matrix
+            y (NDArray[np.floating]):
+                target matrix
+        """
+
+        ss_res = np.sum((y - self.predict(X)) ** 2)
+        ss_tot = np.sum((y - y.mean()) ** 2)
+
+        return 1.0 - ss_res / ss_tot
 
 
 @dataclass
@@ -291,19 +326,26 @@ def train(
     """
 
     if not target_property_computer:
+        LOGGER.debug(f"target_property_computer not specified, defaulting to computing the total energy")
         target_property_computer = total_energy
 
     type_map = get_type_map(configurations)
     if not feature_computer:
+        LOGGER.debug(
+            f"feature_computer not specified, defaulting to computing the extensive topological feature vector"
+        )
         feature_computer = topological_feature_vector_factory(basis=basis, type_map=type_map)
 
-    model = model.fit(
-        *get_data_pairs(
-            configurations=configurations,
-            basis=basis,
-            target_property_computer=target_property_computer,
-            feature_computer=feature_computer,
-        )
+
+    X, y = get_data_pairs(
+        configurations=configurations,
+        basis=basis,
+        target_property_computer=target_property_computer,
+        feature_computer=feature_computer,
     )
 
-    return ClusterExpansion(model=model,cluster_basis=basis,type_map=type_map,)
+    model = model.fit(X, y)
+    if logging.NOTSET < LOGGER.level <= logging.DEBUG:
+        LOGGER.debug(f"model trained with score {model.score(X, y)}")
+
+    return ClusterExpansion(model=model, cluster_basis=basis, type_map=type_map)

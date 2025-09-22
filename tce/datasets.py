@@ -7,10 +7,15 @@ from dataclasses import dataclass, fields
 from pathlib import Path
 import json
 from importlib.resources import files, as_file
+import logging
 
 from ase import Atoms, io
 
 from tce.constants import LatticeStructure
+from tce.training import get_type_map
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 TCE_MODULE_TRAVERSABLE = files("tce")
@@ -79,7 +84,12 @@ class Dataset:
                     raise ValueError(f"path {path} contained multiple frames")
                 configurations.append(configuration)
 
-        return cls(**metadata, configurations=configurations)
+        instance = cls(**metadata, configurations=configurations)
+        LOGGER.debug(
+            f"loaded dataset from {directory} with {len(instance.configurations):.0f} configurations with types "
+            f"{', '.join(get_type_map(configurations))}."
+        )
+        return instance
     
 
 def available_datasets() -> list[str]:

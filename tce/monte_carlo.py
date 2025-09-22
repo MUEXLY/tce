@@ -167,6 +167,7 @@ def monte_carlo(
         lattice_parameter=lattice_parameter,
         size=tuple((lengths // lattice_parameter).astype(int))
     )
+    LOGGER.debug(f"initialized supercell with size {supercell.size} for MC run")
 
     inverse_type_map = {v: k for k, v in enumerate(cluster_expansion.type_map)}
     initial_types = np.fromiter((
@@ -184,6 +185,7 @@ def monte_carlo(
             max_triplet_order=cluster_expansion.cluster_basis.max_triplet_order
         )
     )
+    LOGGER.debug(f"initial energy is {energy}")
     for step in range(num_steps):
 
         callback(step, num_steps)

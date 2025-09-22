@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 from itertools import pairwise
 from enum import Enum, auto
+import logging
 
 from ase.calculators.calculator import Calculator
 from ase import Atoms
@@ -15,6 +16,9 @@ from numpy.typing import NDArray
 
 from .training import ClusterExpansion
 from .topology import FeatureComputer, topological_feature_vector_factory
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class ASEProperty(Enum):
@@ -72,8 +76,10 @@ class TCECalculator(Calculator):
         for key in expansion_ids:
             if key in INTENSIVE_PROPERTIES:
                 self.feature_computers[key] = intensive_feature_computer
+                LOGGER.debug(f"intensive feature computer stored for property {key}")
             else:
                 self.feature_computers[key] = extensive_feature_computer
+                LOGGER.debug(f"extensive feature computer stored for property {key}")
 
     def get_property(self, name: str, atoms: Optional[Atoms] = None, allow_calculation: bool = True):
 
@@ -90,7 +96,7 @@ class TCECalculator(Calculator):
         computer = self.feature_computers[prop]
 
         if atoms is None:
-            raise ValueError("please prove Atoms object")
+            raise ValueError("please provide Atoms object")
 
         x = computer(atoms).reshape(1, -1)
         model = self.cluster_expansions[prop].model
