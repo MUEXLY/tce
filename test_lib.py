@@ -24,7 +24,8 @@ from tce.training import (
     LARGE_SYSTEM_MESSAGE,
     LimitingRidge,
     ClusterExpansion,
-    train
+    train,
+    difference_train
 )
 from tce.topology import symmetrize
 from tce.datasets import available_datasets, Dataset
@@ -300,6 +301,30 @@ def test_can_train_and_attach_calculator(dataset_str):
     for configuration in configurations:
         assert isinstance(configuration.calc, TCECalculator)
         _ = configuration.get_potential_energy()
+
+
+@pytest.mark.parametrize("dataset_str", available_datasets())
+def test_can_difference_train(dataset_str):
+
+    dataset = Dataset.from_dir(dataset_str)
+    configurations = dataset.configurations[:10]
+
+    configuration_pairs = [
+        (configurations[0], configurations[1]),
+        (configurations[2], configurations[3]),
+        (configurations[4], configurations[5])
+    ]
+
+    _ = difference_train(
+        configuration_pairs,
+        basis=ClusterBasis(
+            lattice_structure=dataset.lattice_structure,
+            lattice_parameter=dataset.lattice_parameter,
+            max_adjacency_order=3,
+            max_triplet_order=1
+        ),
+        model=LimitingRidge()
+    )
 
 
 @pytest.fixture

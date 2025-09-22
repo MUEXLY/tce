@@ -336,13 +336,76 @@ def train(
         )
         feature_computer = topological_feature_vector_factory(basis=basis, type_map=type_map)
 
-
     X, y = get_data_pairs(
         configurations=configurations,
         basis=basis,
         target_property_computer=target_property_computer,
         feature_computer=feature_computer,
     )
+
+    model = model.fit(X, y)
+    if logging.NOTSET < LOGGER.level <= logging.DEBUG:
+        LOGGER.debug(f"model trained with score {model.score(X, y)}")
+
+    return ClusterExpansion(model=model, cluster_basis=basis, type_map=type_map)
+
+
+def difference_train(
+    configuration_pairs: list[tuple[Atoms, Atoms]],
+    basis: ClusterBasis,
+    model: Model = LimitingRidge(),
+    target_property_computer: Optional[PropertyComputer] = None,
+    feature_computer: Optional[FeatureComputer] = None
+) -> ClusterExpansion:
+    r"""
+        convenience training method wrapper for difference trainingf. here, we train on a list of configuration pairs
+        `(initial, final)` and output a cluster expansion model.
+
+        Args:
+            configuration_pairs (list[tuple[Atoms, Atoms]]:
+                list of configuration pairs to train on. data pairs will look like
+                `(X_initial - X_final, y_initial - y_final)`.
+            basis (ClusterBasis):
+                cluster basis
+            model (Model, optional):
+                model used to train the model. if not specified, defaults to `training.LimitingRidge`.
+            target_property_computer (PropertyComputer, optional):
+                target property computer to use when training the model. if not specified, defaults to computing the total
+                energy.
+            feature_computer (FeatureComputer, optional):
+                feature computer to use when training the model. if not specified, defaults to computing the topological
+                feature vector.
+        """
+
+    if not target_property_computer:
+        LOGGER.debug("target_property_computer not specified, defaulting to computing the total energy")
+        target_property_computer = total_energy
+
+    initial_configurations = [pair[0] for pair in configuration_pairs]
+    final_configurations = [pair[1] for pair in configuration_pairs]
+
+    type_map = get_type_map(initial_configurations + final_configurations)
+    if not feature_computer:
+        LOGGER.debug(
+            "feature_computer not specified, defaulting to computing the extensive topological feature vector"
+        )
+        feature_computer = topological_feature_vector_factory(basis=basis, type_map=type_map)
+
+    X_initial, y_initial = get_data_pairs(
+        configurations=initial_configurations,
+        basis=basis,
+        target_property_computer=target_property_computer,
+        feature_computer=feature_computer
+    )
+
+    X_final, y_final = get_data_pairs(
+        configurations=final_configurations,
+        basis=basis,
+        target_property_computer=target_property_computer,
+        feature_computer=feature_computer
+    )
+
+    X, y = X_initial - X_final, y_initial - y_final
 
     model = model.fit(X, y)
     if logging.NOTSET < LOGGER.level <= logging.DEBUG:
