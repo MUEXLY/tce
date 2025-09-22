@@ -326,13 +326,13 @@ def train(
     """
 
     if not target_property_computer:
-        LOGGER.debug(f"target_property_computer not specified, defaulting to computing the total energy")
+        LOGGER.debug("target_property_computer not specified, defaulting to computing the total energy")
         target_property_computer = total_energy
 
     type_map = get_type_map(configurations)
     if not feature_computer:
         LOGGER.debug(
-            f"feature_computer not specified, defaulting to computing the extensive topological feature vector"
+            "feature_computer not specified, defaulting to computing the extensive topological feature vector"
         )
         feature_computer = topological_feature_vector_factory(basis=basis, type_map=type_map)
 
