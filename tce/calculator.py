@@ -69,6 +69,12 @@ class TCECalculator(Calculator):
             type_map=self.cluster_expansions[expansion_ids[0]].type_map,
         )
 
+        expansion_ids = list(self.cluster_expansions.keys())
+        extensive_feature_computer = topological_feature_vector_factory(
+            basis=self.cluster_expansions[expansion_ids[0]].cluster_basis,
+            type_map=self.cluster_expansions[expansion_ids[0]].type_map,
+        )
+
         def intensive_feature_computer(atoms: Atoms) -> NDArray:
 
             return extensive_feature_computer(atoms) / len(atoms)
