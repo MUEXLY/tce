@@ -1,5 +1,3 @@
-from typing import Callable
-
 from ase import build
 from ase.calculators.calculator import Calculator
 from ase.calculators.lammpslib import LAMMPSlib
@@ -21,7 +19,7 @@ def main():
 
     # we need to define a constructor here, not a Calculator object, because each configuration
     # needs its own Calculator instance
-    def calculator_constructor() -> Callable[[], Calculator]:
+    def calculator_constructor() -> Calculator:
         return LAMMPSlib(
             lmpcmds=[
                 "pair_style eam/alloy",
