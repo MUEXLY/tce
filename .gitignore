@@ -180,6 +180,7 @@ trash
 
 # potential files
 *.eam.alloy
+*.eam.fs
 
 # pickled files
 *.pkl
