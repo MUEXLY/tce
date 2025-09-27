@@ -22,8 +22,9 @@ def main():
     def calculator_constructor() -> Calculator:
         return LAMMPSlib(
             lmpcmds=[
-                "pair_style eam/alloy",
-                "pair_coeff * * FeCr.eam.alloy Fe Cr",
+                "pair_style hybrid/overlay eam/alloy eam/fs",
+                "pair_coeff * * eam/alloy Fe_Cr_Eich_2015_TBM_lammps.eam.alloy Fe Cr",
+                "pair_coeff * * eam/fs Fe_Cr_Eich_2015_TBM_lammps.eam.fs Fe Cr",
                 "neighbor 2.0 bin",
                 "neigh_modify delay 10",
                 "fix 1 all box/relax iso 0.0 vmax 0.001",
@@ -101,7 +102,7 @@ def main():
     )
     plt.hist(
         testing_residuals / len(atoms),
-        order=8,
+        zorder=8,
         label="testing",
         linewidth=1.0,
         edgecolor="black",
